@@ -10,8 +10,8 @@ fn search() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::cargo_bin("smrs")?;
 
     cmd.arg("search")
-        .arg("../../tests/test-data/demo/SRR2060939_1.sig")
-        .arg("../../tests/test-data/v5.sbt.json")
+        .arg("tests/data/SRR2060939_1.sig")
+        .arg("tests/data/v5.sbt.json")
         .assert()
         .success()
         .stdout(contains("SRR2060939_1.fastq.gz"))
@@ -27,8 +27,8 @@ fn search_only_leaves() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::cargo_bin("smrs")?;
 
     cmd.arg("search")
-        .arg("../../tests/test-data/demo/SRR2060939_1.sig")
-        .arg("../../tests/test-data/leaves.sbt.json")
+        .arg("tests/data/SRR2060939_1.sig")
+        .arg("tests/data/leaves.sbt.json")
         .assert()
         .success()
         .stdout(contains("SRR2060939_1.fastq.gz"))
@@ -43,14 +43,8 @@ fn search_only_leaves() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(unix)]
 fn compute_index_and_search() -> Result<(), Box<dyn std::error::Error>> {
     let tmp_dir = TempDir::new()?;
-    fs::copy(
-        "../../tests/test-data/short.fa",
-        tmp_dir.path().join("short.fa"),
-    )?;
-    fs::copy(
-        "../../tests/test-data/short2.fa",
-        tmp_dir.path().join("short2.fa"),
-    )?;
+    fs::copy("tests/data/short.fa", tmp_dir.path().join("short.fa"))?;
+    fs::copy("tests/data/short2.fa", tmp_dir.path().join("short2.fa"))?;
 
     assert!(tmp_dir.path().join("short.fa").exists());
     assert!(tmp_dir.path().join("short2.fa").exists());
@@ -99,14 +93,8 @@ fn compute_index_and_search() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(unix)]
 fn index_and_search() -> Result<(), Box<dyn std::error::Error>> {
     let tmp_dir = TempDir::new()?;
-    fs::copy(
-        "../../tests/test-data/demo/SRR2060939_1.sig",
-        tmp_dir.path().join("1.sig"),
-    )?;
-    fs::copy(
-        "../../tests/test-data/demo/SRR2060939_2.sig",
-        tmp_dir.path().join("2.sig"),
-    )?;
+    fs::copy("tests/data/SRR2060939_1.sig", tmp_dir.path().join("1.sig"))?;
+    fs::copy("tests/data/SRR2060939_2.sig", tmp_dir.path().join("2.sig"))?;
 
     assert!(tmp_dir.path().join("1.sig").exists());
     assert!(tmp_dir.path().join("2.sig").exists());
