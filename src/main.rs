@@ -12,9 +12,6 @@ use niffler::{get_output, CompressionFormat};
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 
-/* FIXME bring back after succint-rs changes
-use sourmash::cmd::{count_unique, draff_compare, draff_search, draff_signature, prepare};
-*/
 use sourmash::cmd::prepare;
 
 use sourmash::index::linear::LinearIndex;
@@ -330,7 +327,7 @@ fn main() -> Result<(), ExitFailure> {
 
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
-    let yml = load_yaml!("sourmash.yml");
+    let yml = load_yaml!("decoct.yml");
     let m = App::from_yaml(yml).get_matches();
 
     match m.subcommand_name() {

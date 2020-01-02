@@ -7,7 +7,7 @@ use tempfile::TempDir;
 
 #[test]
 fn search() -> Result<(), Box<dyn std::error::Error>> {
-    let mut cmd = Command::cargo_bin("smrs")?;
+    let mut cmd = Command::cargo_bin("decoct")?;
 
     cmd.arg("search")
         .arg("tests/data/SRR2060939_1.sig")
@@ -24,7 +24,7 @@ fn search() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 #[ignore]
 fn search_only_leaves() -> Result<(), Box<dyn std::error::Error>> {
-    let mut cmd = Command::cargo_bin("smrs")?;
+    let mut cmd = Command::cargo_bin("decoct")?;
 
     cmd.arg("search")
         .arg("tests/data/SRR2060939_1.sig")
@@ -60,7 +60,7 @@ fn compute_index_and_search() -> Result<(), Box<dyn std::error::Error>> {
     assert!(tmp_dir.path().join("short2.fa.sig").exists());
 
     let mut cmd = Command::new("sourmash");
-    //let mut cmd = Command::cargo_bin("smrs")?;
+    //let mut cmd = Command::cargo_bin("decoct")?;
     cmd.arg("index")
         .args(&["-k", "31"])
         //.args(&["-o", "zzz.sbt.json"])
@@ -72,7 +72,7 @@ fn compute_index_and_search() -> Result<(), Box<dyn std::error::Error>> {
 
     assert!(tmp_dir.path().join("zzz.sbt.json").exists());
 
-    let cmds = vec![Command::new("sourmash"), Command::cargo_bin("smrs")?];
+    let cmds = vec![Command::new("sourmash"), Command::cargo_bin("decoct")?];
 
     for mut cmd in cmds {
         cmd.arg("search")
@@ -99,7 +99,7 @@ fn index_and_search() -> Result<(), Box<dyn std::error::Error>> {
     assert!(tmp_dir.path().join("1.sig").exists());
     assert!(tmp_dir.path().join("2.sig").exists());
 
-    let mut cmd = Command::cargo_bin("smrs")?;
+    let mut cmd = Command::cargo_bin("decoct")?;
     cmd.arg("index")
         .args(&["-k", "31"])
         .args(&["-o", "zzz.sbt.json"])
@@ -110,7 +110,7 @@ fn index_and_search() -> Result<(), Box<dyn std::error::Error>> {
 
     assert!(tmp_dir.path().join("zzz.sbt.json").exists());
 
-    let cmds = vec![Command::new("sourmash"), Command::cargo_bin("smrs")?];
+    let cmds = vec![Command::new("sourmash"), Command::cargo_bin("decoct")?];
 
     for mut cmd in cmds {
         cmd.arg("search")

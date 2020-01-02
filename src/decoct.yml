@@ -1,4 +1,4 @@
-name: smrs
+name: decoct
 version: "2.0.0"
 about: "tools for comparing DNA sequences with MinHash sketches"
 author: Luiz Irber <sourmash@luizirber.org>
