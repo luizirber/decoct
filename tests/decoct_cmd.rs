@@ -127,3 +127,45 @@ fn index_and_search() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+#[test]
+fn compute() -> Result<(), Box<dyn std::error::Error>> {
+    let tmp_dir = TempDir::new()?;
+    fs::copy(
+        "tests/data/ecoli.genes.fna",
+        tmp_dir.path().join("ecoli.fna"),
+    )?;
+
+    let mut cmd = Command::cargo_bin("decoct")?;
+    cmd.arg("compute")
+        .arg("ecoli.fna")
+        .current_dir(&tmp_dir)
+        .assert()
+        .success();
+
+    assert!(tmp_dir.path().join("ecoli.fna.sig").exists());
+
+    let mut cmd = Command::new("sourmash");
+    cmd.arg("compute")
+        .arg("ecoli.fna")
+        .args(&["-o", "ecoli_sourmash.fna.sig"])
+        .current_dir(&tmp_dir)
+        .assert()
+        .success();
+
+    assert!(tmp_dir.path().join("ecoli_sourmash.fna.sig").exists());
+
+    for k in &["21", "31", "51"] {
+        let mut cmd = Command::new("sourmash");
+        cmd.arg("compare")
+            .args(&["-k", k])
+            .arg("ecoli.fna.sig")
+            .arg("ecoli_sourmash.fna.sig")
+            .current_dir(&tmp_dir)
+            .assert()
+            .success()
+            .stdout(contains("min similarity in matrix: 1.000"));
+    }
+
+    Ok(())
+}
