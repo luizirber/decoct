@@ -8,7 +8,6 @@ use clap::{load_yaml, App};
 use exitfailure::ExitFailure;
 use failure::Error;
 use log::{error, info, warn, LevelFilter};
-use needletail::parse_sequence_path;
 use niffler::{get_output, CompressionFormat};
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
@@ -23,8 +22,12 @@ use sourmash::index::search::{
 use sourmash::index::storage::{FSStorage, Storage, ToWriter};
 use sourmash::index::{Comparable, Index, MHBT};
 use sourmash::signature::{Signature, SigsTrait};
-use sourmash::sketch::minhash::{max_hash_for_scaled, HashFunctions, KmerMinHash};
+use sourmash::sketch::minhash::HashFunctions;
 use sourmash::sketch::Sketch;
+
+mod cmd;
+
+use crate::cmd::{compute, ComputeParameters};
 
 pub fn index(
     sig_files: Vec<&str>,
@@ -360,6 +363,8 @@ fn main() -> Result<(), ExitFailure> {
             //dbg!("{:#?}", &m);
             let args = m.subcommand_matches("compute").unwrap();
 
+            let mut params = ComputeParameters::default();
+
             if args.is_present("quiet") {
                 log::set_max_level(LevelFilter::Warn);
             } else {
@@ -371,13 +376,14 @@ fn main() -> Result<(), ExitFailure> {
                 std::process::exit(-1);
             }
 
-            let (dna, input_is_protein) =
-                if args.is_present("input-is-protein") && args.is_present("dna") {
-                    warn!("input is protein, turning off nucleotide hashing");
-                    (false, true)
-                } else {
-                    (true, false)
-                };
+            if args.is_present("input-is-protein") && args.is_present("dna") {
+                warn!("input is protein, turning off nucleotide hashing");
+                params.dna = false;
+                params.input_is_protein = true;
+            } else {
+                params.dna = true;
+                params.input_is_protein = false;
+            };
 
             let scaled: u64 = args
                 .value_of("scaled")
@@ -386,15 +392,16 @@ fn main() -> Result<(), ExitFailure> {
                 .expect("--scaled value must be integer value");
             let num_hashes: u32 = args.value_of("num-hashes").unwrap().parse().unwrap();
 
-            let (scaled, num_hashes) = if scaled > 0 && num_hashes != 0 {
+            if scaled > 0 && num_hashes != 0 {
                 info!("setting num_hashes to 0 because --scaled if set");
                 if scaled >= 1_000_000_000 {
                     warn!("scaled value is nonsensical!? Continuing anyway.")
                 }
-                (scaled, 0)
+                params.num_hashes = 0;
             } else {
-                (scaled, num_hashes)
+                params.num_hashes = num_hashes;
             };
+            params.scaled = scaled;
 
             let filenames = args
                 .values_of("filenames")
@@ -402,20 +409,18 @@ fn main() -> Result<(), ExitFailure> {
                 .unwrap();
             info!("computing signatures for files: {:?}", filenames);
 
-            if args.is_present("randomize") {
-                // TODO randomize filenames
-            }
+            params.randomize = args.is_present("randomize");
 
-            let ksizes: Vec<u32> = args
+            params.ksizes = args
                 .value_of("ksize")
                 .unwrap()
                 .split(",")
                 .map(|x| x.parse().expect("Must be an integer"))
                 .collect();
-            info!("computing signatures for ksizes: {:?}", ksizes);
+            info!("computing signatures for ksizes: {:?}", params.ksizes);
 
             // TODO: num_sigs
-            let num_sigs = ksizes.len();
+            let num_sigs = params.ksizes.len();
 
             // TODO: bad_ksizes
 
@@ -423,131 +428,14 @@ fn main() -> Result<(), ExitFailure> {
 
             // TODO: merge and output
 
-            let track_abundance = args.is_present("track_abundance");
-            if track_abundance {
+            params.track_abundance = args.is_present("track_abundance");
+            if params.track_abundance {
                 info!("Tracking abundance of input-kmers.");
             }
 
-            let max_hash = max_hash_for_scaled(scaled).unwrap_or(0);
-
-            let template: Vec<_> = ksizes
-                .iter()
-                .flat_map(|k| {
-                    let mut ksigs = vec![];
-
-                    if args.is_present("protein") {
-                        ksigs.push(Sketch::MinHash(
-                            KmerMinHash::builder()
-                                .num(num_hashes)
-                                .ksize(*k)
-                                .hash_function(HashFunctions::murmur64_protein)
-                                .max_hash(max_hash)
-                                .abunds(if track_abundance { Some(vec![]) } else { None })
-                                .build(),
-                        ));
-                    }
-
-                    if args.is_present("dayhoff") {
-                        ksigs.push(Sketch::MinHash(
-                            KmerMinHash::builder()
-                                .num(num_hashes)
-                                .ksize(*k)
-                                .hash_function(HashFunctions::murmur64_dayhoff)
-                                .max_hash(max_hash)
-                                .abunds(if track_abundance { Some(vec![]) } else { None })
-                                .build(),
-                        ));
-                    }
-
-                    if args.is_present("hp") {
-                        ksigs.push(Sketch::MinHash(
-                            // TODO: track_abundance
-                            KmerMinHash::builder()
-                                .num(num_hashes)
-                                .ksize(*k)
-                                .hash_function(HashFunctions::murmur64_hp)
-                                .max_hash(max_hash)
-                                .abunds(if track_abundance { Some(vec![]) } else { None })
-                                .build(),
-                        ));
-                    }
-
-                    if !args.is_present("no-dna") {
-                        ksigs.push(Sketch::MinHash(
-                            // TODO: track_abundance
-                            KmerMinHash::builder()
-                                .num(num_hashes)
-                                .ksize(*k)
-                                .hash_function(HashFunctions::murmur64_DNA)
-                                .max_hash(max_hash)
-                                .abunds(if track_abundance { Some(vec![]) } else { None })
-                                .build(),
-                        ));
-                    }
-
-                    ksigs
-                })
-                .collect();
-
             // TODO: check_sequence
-            let check_sequence = false;
 
-            filenames.iter().for_each(|filename| {
-                let sigfile = format!("{}.sig", filename);
-
-                if args.is_present("singleton") {
-                    // TODO: implement one sig per record
-                    unimplemented!()
-                } else if args.is_present("input-is-10x") {
-                    // TODO: implement 10x parsing
-                    unimplemented!()
-                } else {
-                    // make minhashes for the whole file
-                    let mut sig = Signature::builder()
-                        .hash_function("0.murmur64")
-                        .name(Some(filename.to_string()))
-                        .signatures(template.clone())
-                        .build();
-
-                    parse_sequence_path(
-                        filename,
-                        |_| {},
-                        |record| {
-                            // if there is anything other than ACGT in sequence,
-                            // it is replaced with A.
-                            // This matches khmer and screed behavior
-                            //
-                            // NOTE: sourmash is different! It uses the force flag to drop
-                            // k-mers that are not ACGT
-                            /*
-                             for record in records {
-                                 if args.input_is_protein {
-                                     sig.add_protein(record.seq)
-                                 } else {
-                                     sig.add_sequence(record.seq, check_sequence)
-                                 }
-                             }
-                            */
-                            let seq: Vec<u8> = record
-                                .seq
-                                .iter()
-                                .map(|&x| match x as char {
-                                    'A' | 'C' | 'G' | 'T' => x,
-                                    'a' | 'c' | 'g' | 't' => x.to_ascii_uppercase(),
-                                    _ => b'A',
-                                })
-                                .collect();
-
-                            sig.add_sequence(&seq, false)
-                                .expect("Error adding sequence");
-                        },
-                    )
-                    .unwrap();
-
-                    let mut output = get_output(&sigfile, CompressionFormat::No).unwrap();
-                    sig.to_writer(&mut output).unwrap();
-                }
-            });
+            compute(filenames, &params)?;
         }
         Some("scaffold") => {
             let cmd = m.subcommand_matches("scaffold").unwrap();

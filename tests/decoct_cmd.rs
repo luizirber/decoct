@@ -129,6 +129,7 @@ fn index_and_search() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
+#[cfg(unix)]
 fn compute() -> Result<(), Box<dyn std::error::Error>> {
     let tmp_dir = TempDir::new()?;
     fs::copy(
