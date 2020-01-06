@@ -2,11 +2,6 @@
 
 # decoct
 
-The essence of sourmash.
-
-An experimental CLI with a subset of the sourmash CLI commands,
-mainly used to drive development of features in the core library.
-
 🦀
 [![](http://meritbadge.herokuapp.com/decoct)](https://crates.io/crates/decoct)
 [![Docs](https://docs.rs/decoct/badge.svg)](https://docs.rs/decoct)
@@ -16,6 +11,13 @@ mainly used to drive development of features in the core library.
 
 [build-status]: https://github.com/luizirber/decoct/workflows/Rust%20checks/badge.svg
 [github-actions]: https://github.com/luizirber/decoct/actions?query=workflow%3A%22Rust+checks%22
+
+----
+
+The essence of sourmash.
+
+An experimental CLI with a subset of the sourmash CLI commands,
+mainly used to drive development of features in the core library.
 
 ## License
 
