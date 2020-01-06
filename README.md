@@ -2,6 +2,11 @@
 
 # decoct
 
+The essence of sourmash.
+
+An experimental CLI with a subset of the sourmash CLI commands,
+mainly used to drive development of features in the core library.
+
 🦀
 [![](http://meritbadge.herokuapp.com/decoct)](https://crates.io/crates/decoct)
 [![Docs](https://docs.rs/decoct/badge.svg)](https://docs.rs/decoct)
