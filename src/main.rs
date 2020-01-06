@@ -19,7 +19,7 @@ use sourmash::index::sbt::scaffold;
 use sourmash::index::search::{
     search_minhashes, search_minhashes_containment, search_minhashes_find_best,
 };
-use sourmash::index::storage::{FSStorage, Storage, ToWriter};
+use sourmash::index::storage::{FSStorage, Storage};
 use sourmash::index::{Comparable, Index, MHBT};
 use sourmash::signature::{Signature, SigsTrait};
 use sourmash::sketch::minhash::HashFunctions;
