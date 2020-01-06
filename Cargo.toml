@@ -2,12 +2,13 @@
 name = "decoct"
 version = "1.0.0"
 authors = ["Luiz Irber <luiz.irber@gmail.com>"]
-description = "The essence of sourmash"
+description = "The essence of sourmash. An experimental CLI with a subset of the sourmash features, mainly used to drive development of features in the core library."
 repository = "https://github.com/luizirber/decoct"
 keywords = ["minhash", "bioinformatics"]
 categories = ["science", "algorithms", "data-structures"]
 license = "BSD-3-Clause"
 edition = "2018"
+readme = "README.md"
 publish = false
 
 [dependencies]
