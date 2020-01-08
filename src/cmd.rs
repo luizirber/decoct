@@ -153,7 +153,7 @@ pub fn compute<P: AsRef<Path>>(
                             })
                             .collect();
 
-                        sig.add_sequence(&seq, false)
+                        sig.add_sequence(&seq, params.check_sequence)
                             .expect("Error adding sequence");
                         siglist.push(sig);
                     },
@@ -201,7 +201,7 @@ pub fn compute<P: AsRef<Path>>(
                             })
                             .collect();
 
-                        sig.add_sequence(&seq, false)
+                        sig.add_sequence(&seq, params.check_sequence)
                             .expect("Error adding sequence");
                     },
                 )

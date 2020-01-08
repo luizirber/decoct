@@ -360,7 +360,6 @@ fn main() -> Result<(), ExitFailure> {
             index(inputs, storage, &output)?;
         }
         Some("compute") => {
-            //dbg!("{:#?}", &m);
             let args = m.subcommand_matches("compute").unwrap();
 
             let mut params = ComputeParameters::default();
@@ -447,7 +446,7 @@ fn main() -> Result<(), ExitFailure> {
 
             params.singleton = args.is_present("singleton");
 
-            // TODO: check_sequence
+            params.check_sequence = args.is_present("check_sequence");
 
             compute(filenames, &params)?;
         }
