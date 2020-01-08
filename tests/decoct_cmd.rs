@@ -257,7 +257,58 @@ fn compute_merge() -> Result<(), Box<dyn std::error::Error>> {
             .current_dir(&tmp_dir)
             .assert()
             .success()
+            .stdout(contains("0-decoct"))
+            .stdout(contains("1-sourmash"))
             .stdout(contains("min similarity in matrix: 1.000"));
+    }
+
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn compute_singleton() -> Result<(), Box<dyn std::error::Error>> {
+    let tmp_dir = TempDir::new()?;
+    fs::copy(
+        "tests/data/ecoli.genes.fna",
+        tmp_dir.path().join("ecoli.fna"),
+    )?;
+
+    let mut cmd = Command::cargo_bin("decoct")?;
+    cmd.arg("compute")
+        .arg("ecoli.fna")
+        .args(&["-o", "ecoli_decoct.fna.sig"])
+        .arg("--singleton")
+        .current_dir(&tmp_dir)
+        .assert()
+        .success();
+
+    assert!(tmp_dir.path().join("ecoli_decoct.fna.sig").exists());
+
+    let mut cmd = Command::new("sourmash");
+    cmd.arg("compute")
+        .arg("ecoli.fna")
+        .args(&["-o", "ecoli_sourmash.fna.sig"])
+        .arg("--singleton")
+        .current_dir(&tmp_dir)
+        .assert()
+        .success();
+
+    assert!(tmp_dir.path().join("ecoli_sourmash.fna.sig").exists());
+
+    for k in &["21", "31", "51"] {
+        let mut cmd = Command::new("sourmash");
+        cmd.arg("compare")
+            .args(&["-k", k])
+            .arg("ecoli_decoct.fna.sig")
+            .arg("ecoli_sourmash.fna.sig")
+            .current_dir(&tmp_dir)
+            .assert()
+            .success()
+            .stdout(contains("0-gi|556503834:33...\t[1. 0. 1. 0.]"))
+            .stdout(contains("1-gi|556503834:28...\t[0. 1. 0. 1.]"))
+            .stdout(contains("2-gi|556503834:33...\t[1. 0. 1. 0.]"))
+            .stdout(contains("3-gi|556503834:28...\t[0. 1. 0. 1.]"));
     }
 
     Ok(())

@@ -445,6 +445,8 @@ fn main() -> Result<(), ExitFailure> {
                 info!("Tracking abundance of input-kmers.");
             }
 
+            params.singleton = args.is_present("singleton");
+
             // TODO: check_sequence
 
             compute(filenames, &params)?;
