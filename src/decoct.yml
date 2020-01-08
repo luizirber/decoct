@@ -240,6 +240,7 @@ subcommands:
           - merge:
               help: "merge all input files into one signature file with the specified name"
               long: merge
+              takes_value: true
               # visible_alias: name
               required: false
           - name-from-first:

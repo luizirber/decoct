@@ -414,7 +414,7 @@ fn main() -> Result<(), ExitFailure> {
             params.ksizes = args
                 .value_of("ksize")
                 .unwrap()
-                .split(",")
+                .split(',')
                 .map(|x| x.parse().expect("Must be an integer"))
                 .collect();
             info!("computing signatures for ksizes: {:?}", params.ksizes);
@@ -427,6 +427,18 @@ fn main() -> Result<(), ExitFailure> {
             info!("Computing a total of {} signatures(s).", num_sigs);
 
             // TODO: merge and output
+            if args.is_present("merge") && !args.is_present("output") {
+                error!("must specify -o with --merge");
+                std::process::exit(-1);
+            }
+            params.merge = match args.value_of("merge") {
+                Some(v) => Some(v.into()),
+                None => None,
+            };
+            params.output = match args.value_of("output") {
+                Some(v) => Some(v.into()),
+                None => None,
+            };
 
             params.track_abundance = args.is_present("track_abundance");
             if params.track_abundance {

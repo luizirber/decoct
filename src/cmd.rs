@@ -13,6 +13,7 @@
 use std::path::Path;
 
 use failure::Error;
+use log::info;
 use needletail::parse_sequence_path;
 use niffler::{get_output, CompressionFormat};
 use sourmash::index::storage::ToWriter;
@@ -20,25 +21,39 @@ use sourmash::signature::Signature;
 use sourmash::sketch::minhash::{max_hash_for_scaled, HashFunctions, KmerMinHash};
 use sourmash::sketch::Sketch;
 
-pub fn compute<P: AsRef<Path>>(filenames: Vec<P>, params: &ComputeParameters) -> Result<(), Error> {
+pub fn compute<P: AsRef<Path>>(
+    filenames: Vec<P>,
+    params: &ComputeParameters,
+) -> Result<Vec<Signature>, Error> {
     let template = build_template(&params);
 
-    filenames.iter().for_each(|filename| {
-        let sigfile = format!("{}.sig", filename.as_ref().to_str().unwrap());
+    if params.merge.is_some() {
+        // make one signature for all files
+        let mut n = 0;
+        let mut total_seq = 0;
 
-        if params.singleton {
-            // TODO: implement one sig per record
-            unimplemented!()
-        } else if params.input_is_10x {
-            // TODO: implement 10x parsing
-            unimplemented!()
-        } else {
-            // make minhashes for the whole file
-            let mut sig = Signature::builder()
-                .hash_function("0.murmur64")
-                .name(Some(filename.as_ref().to_str().unwrap().into()))
-                .signatures(template.clone())
-                .build();
+        let mut sig = Signature::builder()
+            .hash_function("0.murmur64")
+            .name(params.merge.clone())
+            .filename(Some(
+                filenames
+                    .iter()
+                    .last()
+                    .unwrap()
+                    .as_ref()
+                    .to_str()
+                    .unwrap()
+                    .into(),
+            ))
+            .signatures(template.clone())
+            .build();
+
+        filenames.iter().for_each(|filename| {
+            // consume & calculate signatures
+            info!(
+                "... reading sequences from {}",
+                filename.as_ref().to_str().unwrap()
+            );
 
             parse_sequence_path(
                 filename,
@@ -71,15 +86,93 @@ pub fn compute<P: AsRef<Path>>(filenames: Vec<P>, params: &ComputeParameters) ->
 
                     sig.add_sequence(&seq, false)
                         .expect("Error adding sequence");
+                    n += 1;
                 },
             )
             .unwrap();
 
-            let mut output = get_output(&sigfile, CompressionFormat::No).unwrap();
-            sig.to_writer(&mut output).unwrap();
-        }
-    });
-    Ok(())
+            total_seq += n + 1;
+        });
+
+        info!(
+            "calculated {} signatures for {} sequences taken from {} files",
+            template.len(),
+            total_seq,
+            filenames.len()
+        );
+
+        let mut output =
+            get_output(params.output.as_ref().unwrap(), CompressionFormat::No).unwrap();
+        sig.to_writer(&mut output).unwrap();
+        Ok(vec![sig])
+    } else {
+        // Not merging
+        let mut siglist: Vec<Signature> = vec![];
+
+        filenames.iter().for_each(|filename| {
+            let sigfile = params
+                .output
+                .clone()
+                .unwrap_or(format!("{}.sig", filename.as_ref().to_str().unwrap()));
+
+            if params.singleton {
+                // TODO: implement one sig per record
+                unimplemented!()
+            } else if params.input_is_10x {
+                // TODO: implement 10x parsing
+                unimplemented!()
+            } else {
+                // make minhashes for the whole file
+                let fname = Some(filename.as_ref().to_str().unwrap().into());
+                let mut sig = Signature::builder()
+                    .hash_function("0.murmur64")
+                    .name(fname.clone())
+                    .filename(fname.clone())
+                    .signatures(template.clone())
+                    .build();
+
+                parse_sequence_path(
+                    filename,
+                    |_| {},
+                    |record| {
+                        // if there is anything other than ACGT in sequence,
+                        // it is replaced with A.
+                        // This matches khmer and screed behavior
+                        //
+                        // NOTE: sourmash is different! It uses the force flag to drop
+                        // k-mers that are not ACGT
+                        /*
+                         for record in records {
+                             if args.input_is_protein {
+                                 sig.add_protein(record.seq)
+                             } else {
+                                 sig.add_sequence(record.seq, check_sequence)
+                             }
+                         }
+                        */
+                        let seq: Vec<u8> = record
+                            .seq
+                            .iter()
+                            .map(|&x| match x as char {
+                                'A' | 'C' | 'G' | 'T' => x,
+                                'a' | 'c' | 'g' | 't' => x.to_ascii_uppercase(),
+                                _ => b'A',
+                            })
+                            .collect();
+
+                        sig.add_sequence(&seq, false)
+                            .expect("Error adding sequence");
+                    },
+                )
+                .unwrap();
+
+                let mut output = get_output(&sigfile, CompressionFormat::No).unwrap();
+                sig.to_writer(&mut output).unwrap();
+                siglist.push(sig);
+            }
+        });
+        Ok(siglist)
+    }
 }
 
 pub struct ComputeParameters {
@@ -103,7 +196,7 @@ pub struct ComputeParameters {
     pub name_from_first: bool,
     pub seed: usize,
     pub input_is_protein: bool,
-    pub merge: Option<bool>, // TODO: check
+    pub merge: Option<String>,
     pub track_abundance: bool,
     pub randomize: bool,
     pub license: String,
