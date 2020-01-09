@@ -3,6 +3,7 @@ use std::process::Command;
 
 use assert_cmd::prelude::*;
 use predicates::str::contains;
+use sourmash::signature::Signature;
 use tempfile::TempDir;
 
 #[test]
@@ -267,6 +268,27 @@ fn compute_merge() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 #[cfg(unix)]
+fn compute_merge_no_output() -> Result<(), Box<dyn std::error::Error>> {
+    let tmp_dir = TempDir::new()?;
+    fs::copy(
+        "tests/data/ecoli.genes.fna",
+        tmp_dir.path().join("ecoli.fna"),
+    )?;
+
+    let mut cmd = Command::cargo_bin("decoct")?;
+    cmd.arg("compute")
+        .arg("ecoli.fna")
+        .args(&["--merge", "decoct"])
+        .current_dir(&tmp_dir)
+        .assert()
+        .failure()
+        .code(255);
+
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
 fn compute_singleton() -> Result<(), Box<dyn std::error::Error>> {
     let tmp_dir = TempDir::new()?;
     fs::copy(
@@ -310,6 +332,39 @@ fn compute_singleton() -> Result<(), Box<dyn std::error::Error>> {
             .stdout(contains("2-gi|556503834:33...\t[1. 0. 1. 0.]"))
             .stdout(contains("3-gi|556503834:28...\t[0. 1. 0. 1.]"));
     }
+
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn compute_name_from_first() -> Result<(), Box<dyn std::error::Error>> {
+    let tmp_dir = TempDir::new()?;
+    fs::copy(
+        "tests/data/ecoli.genes.fna",
+        tmp_dir.path().join("ecoli.fna"),
+    )?;
+
+    let mut cmd = Command::cargo_bin("decoct")?;
+    cmd.arg("compute")
+        .arg("ecoli.fna")
+        .arg("--name-from-first")
+        .args(&["-k", "31"])
+        .current_dir(&tmp_dir)
+        .assert()
+        .success();
+
+    assert!(tmp_dir.path().join("ecoli.fna.sig").exists());
+
+    let sigs = Signature::from_path(tmp_dir.path().join("ecoli.fna.sig"))?;
+    assert_eq!(sigs.len(), 1);
+
+    let sig = sigs.first().unwrap();
+    dbg!(sig);
+    assert_eq!(
+        sig.name(),
+        "gi|556503834:337-2799 Escherichia coli str. K-12 substr. MG1655, complete genome"
+    );
 
     Ok(())
 }

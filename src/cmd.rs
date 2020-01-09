@@ -164,13 +164,18 @@ pub fn compute<P: AsRef<Path>>(
                 unimplemented!()
             } else {
                 // make minhashes for the whole file
-                let fname = Some(filename.as_ref().to_str().unwrap().into());
+
+                let fname: String = filename.as_ref().to_str().unwrap().into();
+                info!("... reading sequences from {}", &fname);
+
                 let mut sig = Signature::builder()
                     .hash_function("0.murmur64")
-                    .name(fname.clone())
-                    .filename(fname.clone())
+                    .name(Some(fname.clone()))
+                    .filename(Some(fname.clone()))
                     .signatures(template.clone())
                     .build();
+
+                let mut name = None;
 
                 parse_sequence_path(
                     filename,
@@ -203,20 +208,33 @@ pub fn compute<P: AsRef<Path>>(
 
                         sig.add_sequence(&seq, params.check_sequence)
                             .expect("Error adding sequence");
+
+                        if params.name_from_first && name.is_none() {
+                            name = Some(String::from_utf8(record.id.into_owned()).unwrap())
+                        };
                     },
                 )
                 .unwrap();
 
-                let mut output = get_output(&sigfile, CompressionFormat::No).unwrap();
-                sig.to_writer(&mut output).unwrap();
-                siglist.push(sig);
+                dbg!(&name);
+                if let Some(n) = name {
+                    sig.name = Some(n)
+                };
+
+                if params.output.is_none() {
+                    let mut output = get_output(&sigfile, CompressionFormat::No).unwrap();
+                    sig.to_writer(&mut output).unwrap();
+                    siglist = vec![sig];
+                } else {
+                    siglist.push(sig);
+                }
+            }
+
+            if let Some(ref output_name) = params.output {
+                let mut output = get_output(&output_name, CompressionFormat::No).unwrap();
+                serde_json::to_writer(&mut output, &siglist).unwrap();
             }
         });
-
-        if let Some(ref output_name) = params.output {
-            let mut output = get_output(&output_name, CompressionFormat::No).unwrap();
-            serde_json::to_writer(&mut output, &siglist).unwrap();
-        }
 
         Ok(siglist)
     }

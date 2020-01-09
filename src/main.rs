@@ -408,8 +408,6 @@ fn main() -> Result<(), ExitFailure> {
                 .unwrap();
             info!("computing signatures for files: {:?}", filenames);
 
-            params.randomize = args.is_present("randomize");
-
             params.ksizes = args
                 .value_of("ksize")
                 .unwrap()
@@ -425,7 +423,6 @@ fn main() -> Result<(), ExitFailure> {
 
             info!("Computing a total of {} signatures(s).", num_sigs);
 
-            // TODO: merge and output
             if args.is_present("merge") && !args.is_present("output") {
                 error!("must specify -o with --merge");
                 std::process::exit(-1);
@@ -439,14 +436,15 @@ fn main() -> Result<(), ExitFailure> {
                 None => None,
             };
 
-            params.track_abundance = args.is_present("track_abundance");
+            params.track_abundance = args.is_present("track-abundance");
             if params.track_abundance {
                 info!("Tracking abundance of input-kmers.");
             }
 
+            params.randomize = args.is_present("randomize");
             params.singleton = args.is_present("singleton");
-
-            params.check_sequence = args.is_present("check_sequence");
+            params.check_sequence = args.is_present("check-sequence");
+            params.name_from_first = args.is_present("name-from-first");
 
             compute(filenames, &params)?;
         }
