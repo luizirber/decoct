@@ -11,6 +11,11 @@ edition = "2018"
 readme = "README.md"
 publish = false
 
+[profile.release]
+debug = true
+lto = true
+codegen-units = 1
+
 [dependencies]
 clap = { version = "2.33.0", features = ["yaml", "wrap_help"] }
 csv = "1.1.1"
@@ -23,7 +28,7 @@ niffler = { version = "1.0", default-features = false }
 needletail = { version = "0.3.2", default-features = false }
 serde = "1.0.103"
 serde_json = "1.0.44"
-sourmash = { git = "https://github.com/dib-lab/sourmash.git", branch = "rust_compute_decoct" }
+sourmash = { git = "https://github.com/dib-lab/sourmash.git", branch = "rust_compute_decoct", features = ["parallel"] }
 
 [dev-dependencies]
 tempfile = "3.1.0"

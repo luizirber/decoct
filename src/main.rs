@@ -27,7 +27,8 @@ use sourmash::sketch::Sketch;
 
 mod cmd;
 
-use crate::cmd::{compute, ComputeParameters};
+use crate::cmd::compute;
+use sourmash::cmd::ComputeParameters;
 
 pub fn index(
     sig_files: Vec<&str>,
