@@ -16,38 +16,30 @@ use failure::Error;
 use log::info;
 use needletail::parse_sequence_path;
 use niffler::{get_output, CompressionFormat};
-use sourmash::cmd::{build_template, ComputeParameters};
+use sourmash::cmd::ComputeParameters;
 use sourmash::index::storage::ToWriter;
 use sourmash::signature::Signature;
-use sourmash::sketch::minhash::{max_hash_for_scaled, HashFunctions, KmerMinHash};
-use sourmash::sketch::Sketch;
 
 pub fn compute<P: AsRef<Path>>(
     filenames: Vec<P>,
     params: &ComputeParameters,
 ) -> Result<Vec<Signature>, Error> {
-    let template = build_template(&params);
-
     if params.merge.is_some() {
         // make one signature for all files
         let mut n = 0;
         let mut total_seq = 0;
 
-        let mut sig = Signature::builder()
-            .hash_function("0.murmur64")
-            .name(params.merge.clone())
-            .filename(Some(
-                filenames
-                    .iter()
-                    .last()
-                    .unwrap()
-                    .as_ref()
-                    .to_str()
-                    .unwrap()
-                    .into(),
-            ))
-            .signatures(template.clone())
-            .build();
+        let mut sig = Signature::from_params(&params);
+        sig.filename = Some(
+            filenames
+                .iter()
+                .last()
+                .unwrap()
+                .as_ref()
+                .to_str()
+                .unwrap()
+                .into(),
+        );
 
         filenames.iter().for_each(|filename| {
             // consume & calculate signatures
@@ -97,7 +89,7 @@ pub fn compute<P: AsRef<Path>>(
 
         info!(
             "calculated {} signatures for {} sequences taken from {} files",
-            template.len(),
+            sig.signatures.len(),
             total_seq,
             filenames.len()
         );
@@ -123,12 +115,9 @@ pub fn compute<P: AsRef<Path>>(
                     |_| {},
                     |record| {
                         let fname = Some(filename.as_ref().to_str().unwrap().into());
-                        let mut sig = Signature::builder()
-                            .hash_function("0.murmur64")
-                            .name(Some(String::from_utf8(record.id.into_owned()).unwrap()))
-                            .filename(fname.clone())
-                            .signatures(template.clone())
-                            .build();
+                        let mut sig = Signature::from_params(&params);
+                        sig.name = Some(String::from_utf8(record.id.into_owned()).unwrap());
+                        sig.filename = fname.clone();
                         // if there is anything other than ACGT in sequence,
                         // it is replaced with A.
                         // This matches khmer and screed behavior
@@ -169,12 +158,9 @@ pub fn compute<P: AsRef<Path>>(
                 let fname: String = filename.as_ref().to_str().unwrap().into();
                 info!("... reading sequences from {}", &fname);
 
-                let mut sig = Signature::builder()
-                    .hash_function("0.murmur64")
-                    .name(Some(fname.clone()))
-                    .filename(Some(fname.clone()))
-                    .signatures(template.clone())
-                    .build();
+                let mut sig = Signature::from_params(&params);
+                sig.name = Some(fname.clone());
+                sig.filename = Some(fname.clone());
 
                 let mut name = None;
 
