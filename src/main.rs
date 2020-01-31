@@ -12,7 +12,7 @@ use niffler::{get_output, CompressionFormat};
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 
-use sourmash::cmd::prepare;
+use sourmash::cmd::{prepare, ComputeParameters};
 
 use sourmash::index::linear::LinearIndex;
 use sourmash::index::sbt::scaffold;
@@ -27,8 +27,7 @@ use sourmash::sketch::Sketch;
 
 mod cmd;
 
-use crate::cmd::compute;
-use sourmash::cmd::ComputeParameters;
+use crate::cmd::{compare, compute, CompareParameters};
 
 pub fn index(
     sig_files: Vec<&str>,
@@ -100,6 +99,13 @@ impl Query<Signature> {
         // TODO: this might panic
         match &self.data.signatures[0] {
             Sketch::MinHash(mh) => {
+                if mh.is_protein() {
+                    "protein".into()
+                } else {
+                    "DNA".into()
+                }
+            }
+            Sketch::ModHash(mh) => {
                 if mh.is_protein() {
                     "protein".into()
                 } else {
@@ -442,12 +448,56 @@ fn main() -> Result<(), ExitFailure> {
                 info!("Tracking abundance of input-kmers.");
             }
 
+            params.modhash = args.is_present("modhash");
+            if params.modhash {
+                info!("Calculating modhash");
+            }
+
             params.randomize = args.is_present("randomize");
             params.singleton = args.is_present("singleton");
             params.check_sequence = args.is_present("check-sequence");
             params.name_from_first = args.is_present("name-from-first");
 
             compute(filenames, &params)?;
+        }
+        Some("compare") => {
+            let args = m.subcommand_matches("compare").unwrap();
+
+            let mut params = CompareParameters::default();
+
+            if args.is_present("quiet") {
+                log::set_max_level(LevelFilter::Warn);
+            } else {
+                log::set_max_level(LevelFilter::Info);
+            }
+
+            let signatures = args
+                .values_of("signatures")
+                .map(|vals| vals.collect::<Vec<_>>())
+                .unwrap();
+
+            params.ksize = args
+                .value_of("ksize")
+                .unwrap()
+                .parse()
+                .expect("Must be an integer");
+
+            params.output = match args.value_of("output") {
+                Some(v) => Some(v.into()),
+                None => None,
+            };
+
+            params.ignore_abundance = args.is_present("ignore-abundance");
+            if params.ignore_abundance {
+                info!("Ignore abundance");
+            }
+
+            params.modhash = args.is_present("modhash");
+            if params.modhash {
+                info!("Use modhash instead of minhash");
+            }
+
+            compare(&signatures, &params);
         }
         Some("scaffold") => {
             let cmd = m.subcommand_matches("scaffold").unwrap();

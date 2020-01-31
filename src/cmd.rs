@@ -1,15 +1,3 @@
-// Note for compute: Use something like glium::DrawParameters to deal with
-// parameters complexity...
-// https://docs.rs/glium/0.26.0-alpha5/glium/draw_parameters/struct.DrawParameters.html
-//
-// let params = glium::DrawParameters {
-//     line_width: Some(0.02),
-//     point_size: Some(0.02),
-//     .. Default::default()
-// };
-//
-// target.draw(..., &params).unwrap();
-
 use std::path::Path;
 
 use failure::Error;
@@ -224,5 +212,48 @@ pub fn compute<P: AsRef<Path>>(
         });
 
         Ok(siglist)
+    }
+}
+
+pub fn compare(
+    signatures: &[Signature],
+    params: &CompareParameters,
+) -> Result<Vec<Vec<f64>>, Error> {
+    unimplemented!();
+}
+
+pub struct CompareParameters {
+    pub ksize: u32,
+    pub modhash: bool,
+
+    pub dna: bool,
+    pub dayhoff: bool,
+    pub hp: bool,
+    pub protein: bool,
+
+    pub output: Option<String>,
+    pub csv: Option<String>,
+
+    pub ignore_abundance: bool,
+    pub traverse_directory: bool,
+
+    pub processes: usize,
+}
+
+impl Default for CompareParameters {
+    fn default() -> Self {
+        CompareParameters {
+            ksize: 31,
+            modhash: false,
+            dna: true,
+            dayhoff: false,
+            hp: false,
+            protein: false,
+            output: None,
+            csv: None,
+            ignore_abundance: false,
+            traverse_directory: false,
+            processes: 1,
+        }
     }
 }
