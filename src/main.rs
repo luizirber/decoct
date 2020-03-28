@@ -497,7 +497,7 @@ fn main() -> Result<(), ExitFailure> {
                 info!("Use modhash instead of minhash");
             }
 
-            compare(&signatures, &params);
+            //compare(&signatures, &params);
         }
         Some("scaffold") => {
             let cmd = m.subcommand_matches("scaffold").unwrap();
