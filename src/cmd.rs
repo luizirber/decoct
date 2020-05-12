@@ -3,7 +3,6 @@ use std::path::Path;
 use failure::Error;
 use log::info;
 use needletail::parse_sequence_path;
-use niffler::{get_output, CompressionFormat};
 use sourmash::cmd::ComputeParameters;
 use sourmash::index::storage::ToWriter;
 use sourmash::signature::Signature;
@@ -18,16 +17,7 @@ pub fn compute<P: AsRef<Path>>(
         let mut total_seq = 0;
 
         let mut sig = Signature::from_params(&params);
-        sig.filename = Some(
-            filenames
-                .iter()
-                .last()
-                .unwrap()
-                .as_ref()
-                .to_str()
-                .unwrap()
-                .into(),
-        );
+        sig.set_filename(filenames.iter().last().unwrap().as_ref().to_str().unwrap());
 
         filenames.iter().for_each(|filename| {
             // consume & calculate signatures
@@ -43,7 +33,7 @@ pub fn compute<P: AsRef<Path>>(
                     if params.input_is_protein {
                         sig.add_protein(&record.seq).expect("Error adding sequence");
                     } else {
-                        sig.add_sequence(&record.seq, false)
+                        sig.add_sequence(&record.seq, params.force)
                             .expect("Error adding sequence");
                     }
                     n += 1;
@@ -56,13 +46,16 @@ pub fn compute<P: AsRef<Path>>(
 
         info!(
             "calculated {} signatures for {} sequences taken from {} files",
-            sig.signatures.len(),
+            sig.size(),
             total_seq,
             filenames.len()
         );
 
-        let mut output =
-            get_output(params.output.as_ref().unwrap(), CompressionFormat::No).unwrap();
+        let mut output = niffler::to_path(
+            params.output.as_ref().unwrap(),
+            niffler::compression::Format::No,
+            niffler::compression::Level::One,
+        )?;
         sig.to_writer(&mut output).unwrap();
 
         return Ok(vec![sig]);
@@ -82,15 +75,14 @@ pub fn compute<P: AsRef<Path>>(
                 filename,
                 |_| {},
                 |record| {
-                    let fname = Some(filename.as_ref().to_str().unwrap().into());
                     let mut sig = Signature::from_params(&params);
-                    sig.name = Some(String::from_utf8(record.id.into_owned()).unwrap());
-                    sig.filename = fname.clone();
+                    sig.set_name(&String::from_utf8(record.id.into_owned()).unwrap());
+                    sig.set_filename(&filename.as_ref().to_str().unwrap());
 
                     if params.input_is_protein {
                         sig.add_protein(&record.seq).expect("Error adding sequence");
                     } else {
-                        sig.add_sequence(&record.seq, false)
+                        sig.add_sequence(&record.seq, params.force)
                             .expect("Error adding sequence");
                     }
                     siglist.push(sig);
@@ -107,8 +99,8 @@ pub fn compute<P: AsRef<Path>>(
             info!("... reading sequences from {}", &fname);
 
             let mut sig = Signature::from_params(&params);
-            sig.name = Some(fname.clone());
-            sig.filename = Some(fname.clone());
+            sig.set_name(&fname);
+            sig.set_filename(&fname);
 
             let mut name = None;
 
@@ -119,7 +111,7 @@ pub fn compute<P: AsRef<Path>>(
                     if params.input_is_protein {
                         sig.add_protein(&record.seq).expect("Error adding sequence");
                     } else {
-                        sig.add_sequence(&record.seq, false)
+                        sig.add_sequence(&record.seq, params.force)
                             .expect("Error adding sequence");
                     }
 
@@ -131,11 +123,16 @@ pub fn compute<P: AsRef<Path>>(
             .unwrap();
 
             if let Some(n) = name {
-                sig.name = Some(n)
+                sig.set_name(&n)
             };
 
             if params.output.is_none() {
-                let mut output = get_output(&sigfile, CompressionFormat::No).unwrap();
+                let mut output = niffler::to_path(
+                    &sigfile,
+                    niffler::compression::Format::No,
+                    niffler::compression::Level::One,
+                )
+                .expect("Error creating output file");
                 sig.to_writer(&mut output).unwrap();
                 siglist = vec![sig];
             } else {
@@ -144,7 +141,12 @@ pub fn compute<P: AsRef<Path>>(
         }
 
         if let Some(ref output_name) = params.output {
-            let mut output = get_output(&output_name, CompressionFormat::No).unwrap();
+            let mut output = niffler::to_path(
+                &output_name,
+                niffler::compression::Format::No,
+                niffler::compression::Level::One,
+            )
+            .expect("Error creating output file");
             serde_json::to_writer(&mut output, &siglist).unwrap();
         }
     });

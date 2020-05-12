@@ -8,7 +8,6 @@ use clap::{load_yaml, App};
 use exitfailure::ExitFailure;
 use failure::Error;
 use log::{error, info, warn, LevelFilter};
-use niffler::{get_output, CompressionFormat};
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 
@@ -28,6 +27,30 @@ use sourmash::sketch::Sketch;
 mod cmd;
 
 use crate::cmd::{compare, compute, CompareParameters};
+
+// Original comment from ripgrep and why using jemalloc with musl is recommended:
+// https://github.com/BurntSushi/ripgrep/commit/03bf37ff4a29361c47843369f7d3dc5689b8fdac
+
+// Since Rust no longer uses jemalloc by default, ripgrep will, by default,
+// use the system allocator. On Linux, this would normally be glibc's
+// allocator, which is pretty good. In particular, ripgrep does not have a
+// particularly allocation heavy workload, so there really isn't much
+// difference (for ripgrep's purposes) between glibc's allocator and
+// jemalloc.
+//
+// However, when ripgrep is built with musl, this means ripgrep will use musl's
+// allocator, which appears to be substantially worse. (musl's goal is not to
+// have the fastest version of everything. Its goal is to be small and
+// amenable to static compilation.) Even though ripgrep isn't particularly allocation
+// heavy, musl's allocator appears to slow down ripgrep quite a bit.  Therefore,
+// when building with musl, we use jemalloc.
+//
+// We don't unconditionally use jemalloc because it can be nice to use the
+// system's default allocator by default. Moreover, jemalloc seems to increase
+// compilation times by a bit.
+#[cfg(target_env = "musl")]
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 pub fn index(
     sig_files: Vec<&str>,
@@ -92,20 +115,13 @@ struct Query<T> {
 impl Query<Signature> {
     fn ksize(&self) -> u64 {
         // TODO: select the correct signature
-        self.data.signatures[0].ksize() as u64
+        self.data.sketches()[0].ksize() as u64
     }
 
     fn moltype(&self) -> String {
         // TODO: this might panic
-        match &self.data.signatures[0] {
+        match &self.data.sketches()[0] {
             Sketch::MinHash(mh) => {
-                if mh.is_protein() {
-                    "protein".into()
-                } else {
-                    "DNA".into()
-                }
-            }
-            Sketch::ModHash(mh) => {
                 if mh.is_protein() {
                     "protein".into()
                 } else {
@@ -448,11 +464,7 @@ fn main() -> Result<(), ExitFailure> {
                 info!("Tracking abundance of input-kmers.");
             }
 
-            params.modhash = args.is_present("modhash");
-            if params.modhash {
-                info!("Calculating modhash");
-            }
-
+            params.force = args.is_present("force");
             params.randomize = args.is_present("randomize");
             params.singleton = args.is_present("singleton");
             params.check_sequence = args.is_present("check-sequence");
@@ -606,12 +618,16 @@ fn main() -> Result<(), ExitFailure> {
             };
 
             if let Some(outname) = cmd.value_of("save-matches") {
-                let writer = get_output(outname, CompressionFormat::No)?;
+                let mut writer = niffler::to_path(
+                    outname,
+                    niffler::compression::Format::No,
+                    niffler::compression::Level::One,
+                )?;
 
                 info!("saving all matched signatures to \"{}\"", outname);
 
                 let sigs: Vec<Signature> = results.into_iter().map(|sr| sr.match_sig).collect();
-                serde_json::to_writer(writer, &sigs)?;
+                serde_json::to_writer(&mut writer, &sigs)?;
             }
         }
         _ => {

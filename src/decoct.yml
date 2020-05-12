@@ -85,6 +85,13 @@ subcommands:
             - databases:
                 help: "signatures/SBTs to search"
                 multiple: true
+    - scaffold:
+        about: scaffold an index
+        settings:
+            - ArgRequiredElseHelp
+        args:
+            - index:
+                help: SBT index
     - prepare:
         about: prepare an index
         settings:
