@@ -253,9 +253,9 @@ subcommands:
               help: "compute a signature for each sequence record individually"
               long: singleton
               required: false
-          - merge:
+          - name:
               help: "merge all input files into one signature file with the specified name"
-              long: merge
+              long: name
               takes_value: true
               # visible_alias: name
               required: false

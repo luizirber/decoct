@@ -18,6 +18,7 @@ pub fn compute<P: AsRef<Path>>(
 
         let mut sig = Signature::from_params(&params);
         sig.set_filename(filenames.iter().last().unwrap().as_ref().to_str().unwrap());
+        sig.set_name(&params.merge.clone().unwrap());
 
         filenames.iter().for_each(|filename| {
             // consume & calculate signatures
@@ -33,7 +34,7 @@ pub fn compute<P: AsRef<Path>>(
                     if params.input_is_protein {
                         sig.add_protein(&record.seq).expect("Error adding sequence");
                     } else {
-                        sig.add_sequence(&record.seq, params.force)
+                        sig.add_sequence(&record.seq, !params.check_sequence)
                             .expect("Error adding sequence");
                     }
                     n += 1;
@@ -82,7 +83,7 @@ pub fn compute<P: AsRef<Path>>(
                     if params.input_is_protein {
                         sig.add_protein(&record.seq).expect("Error adding sequence");
                     } else {
-                        sig.add_sequence(&record.seq, params.force)
+                        sig.add_sequence(&record.seq, !params.check_sequence)
                             .expect("Error adding sequence");
                     }
                     siglist.push(sig);
@@ -111,7 +112,7 @@ pub fn compute<P: AsRef<Path>>(
                     if params.input_is_protein {
                         sig.add_protein(&record.seq).expect("Error adding sequence");
                     } else {
-                        sig.add_sequence(&record.seq, params.force)
+                        sig.add_sequence(&record.seq, !params.check_sequence)
                             .expect("Error adding sequence");
                     }
 

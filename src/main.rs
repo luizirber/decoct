@@ -446,11 +446,11 @@ fn main() -> Result<(), ExitFailure> {
 
             info!("Computing a total of {} signatures(s).", num_sigs);
 
-            if args.is_present("merge") && !args.is_present("output") {
-                error!("must specify -o with --merge");
+            if args.is_present("name") && !args.is_present("output") {
+                error!("must specify -o with --name");
                 std::process::exit(-1);
             }
-            params.merge = match args.value_of("merge") {
+            params.merge = match args.value_of("name") {
                 Some(v) => Some(v.into()),
                 None => None,
             };

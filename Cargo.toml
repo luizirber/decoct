@@ -12,7 +12,7 @@ readme = "README.md"
 publish = false
 
 [profile.release]
-debug = true
+#debug = true
 lto = true
 codegen-units = 1
 
