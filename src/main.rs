@@ -442,6 +442,18 @@ fn main() -> Result<(), ExitFailure> {
             // TODO: num_sigs
             let num_sigs = params.ksizes.len();
 
+            params.processes = match args.value_of("processes") {
+                Some(v) => v.parse()?,
+                None => 1,
+            };
+
+            // TODO: check how many sketches are created, and limit rayon threads.
+            // If rayon tries to use all available threads there is contention
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(params.processes)
+                .build_global()
+                .unwrap();
+
             // TODO: bad_ksizes
 
             info!("Computing a total of {} signatures(s).", num_sigs);

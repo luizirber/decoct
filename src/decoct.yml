@@ -231,11 +231,17 @@ subcommands:
             # --input-is-10x
             # --count-valid-reads
             # --write-barcode-meta-csv
-            # -p
             # --save-fastas
             # --line-count
             # --rename-10x-barcodes
             # --barcodes-file
+          - processes:
+              help: "number of processes to use"
+              short: p
+              long: processes
+              takes_value: true
+              default_value: "1"
+              required: false
 
           # file
           - force:
