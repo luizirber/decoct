@@ -138,7 +138,7 @@ subcommands:
               required: false
           - num-hashes:
               help: "number of hashes to use in each sketch; default=500"
-              short: n 
+              short: n
               long: num-hashes
               takes_value: true
               default_value: "500"
@@ -259,9 +259,18 @@ subcommands:
               help: "compute a signature for each sequence record individually"
               long: singleton
               required: false
+          # TODO: use visible_alias when it is available in YAML,
+          # instead of defining both name and merge
+          # https://github.com/clap-rs/clap/issues/1613
           - name:
               help: "merge all input files into one signature file with the specified name"
               long: name
+              takes_value: true
+              # visible_alias: merge
+              required: false
+          - merge:
+              help: "merge all input files into one signature file with the specified name"
+              long: merge
               takes_value: true
               # visible_alias: name
               required: false
@@ -379,7 +388,7 @@ subcommands:
               help: "file to which output will be written; default is terminal (standard output)"
               long: output
               takes_value: true
-              short: o 
+              short: o
               required: false
           - ignore-abundance:
               help: "do NOT use k-mer abundances even if present"

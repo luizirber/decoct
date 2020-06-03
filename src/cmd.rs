@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use failure::Error;
+use eyre::{Error, WrapErr};
 use log::info;
 use needletail::parse_sequence_path;
 use sourmash::cmd::ComputeParameters;
@@ -20,7 +20,7 @@ pub fn compute<P: AsRef<Path>>(
         sig.set_filename(filenames.iter().last().unwrap().as_ref().to_str().unwrap());
         sig.set_name(&params.merge.clone().unwrap());
 
-        filenames.iter().for_each(|filename| {
+        for filename in &filenames {
             // consume & calculate signatures
             info!(
                 "... reading sequences from {}",
@@ -40,10 +40,15 @@ pub fn compute<P: AsRef<Path>>(
                     n += 1;
                 },
             )
-            .unwrap();
+            .wrap_err_with(|| {
+                format!(
+                    "Failed to read sequences from {}",
+                    filename.as_ref().to_str().unwrap()
+                )
+            })?;
 
             total_seq += n + 1;
-        });
+        }
 
         info!(
             "calculated {} signatures for {} sequences taken from {} files",
@@ -52,12 +57,15 @@ pub fn compute<P: AsRef<Path>>(
             filenames.len()
         );
 
+        let output_name = params.output.as_ref().unwrap();
         let mut output = niffler::to_path(
-            params.output.as_ref().unwrap(),
+            output_name,
             niffler::compression::Format::No,
             niffler::compression::Level::One,
-        )?;
-        sig.to_writer(&mut output).unwrap();
+        )
+        .wrap_err_with(|| format!("Error creating output file {}", output_name))?;
+        sig.to_writer(&mut output)
+            .wrap_err_with(|| format!("Error saving to {}", output_name))?;
 
         return Ok(vec![sig]);
     }
@@ -65,7 +73,7 @@ pub fn compute<P: AsRef<Path>>(
     // Not merging
     let mut siglist: Vec<Signature> = vec![];
 
-    filenames.iter().for_each(|filename| {
+    for filename in &filenames {
         let sigfile = params
             .output
             .clone()
@@ -89,7 +97,12 @@ pub fn compute<P: AsRef<Path>>(
                     siglist.push(sig);
                 },
             )
-            .unwrap();
+            .wrap_err_with(|| {
+                format!(
+                    "Failed to read sequences from {}",
+                    filename.as_ref().to_str().unwrap()
+                )
+            })?;
         } else if params.input_is_10x {
             // TODO: implement 10x parsing
             unimplemented!()
@@ -121,7 +134,12 @@ pub fn compute<P: AsRef<Path>>(
                     };
                 },
             )
-            .unwrap();
+            .wrap_err_with(|| {
+                format!(
+                    "Failed to read sequences from {}",
+                    filename.as_ref().to_str().unwrap()
+                )
+            })?;
 
             if let Some(n) = name {
                 sig.set_name(&n)
@@ -133,8 +151,9 @@ pub fn compute<P: AsRef<Path>>(
                     niffler::compression::Format::No,
                     niffler::compression::Level::One,
                 )
-                .expect("Error creating output file");
-                sig.to_writer(&mut output).unwrap();
+                .wrap_err_with(|| format!("Error creating output file {}", sigfile))?;
+                sig.to_writer(&mut output)
+                    .wrap_err_with(|| format!("Error saving to {}", sigfile))?;
                 siglist = vec![sig];
             } else {
                 siglist.push(sig);
@@ -147,10 +166,11 @@ pub fn compute<P: AsRef<Path>>(
                 niffler::compression::Format::No,
                 niffler::compression::Level::One,
             )
-            .expect("Error creating output file");
-            serde_json::to_writer(&mut output, &siglist).unwrap();
+            .wrap_err_with(|| format!("Error creating output file {}", output_name))?;
+            serde_json::to_writer(&mut output, &siglist)
+                .wrap_err_with(|| format!("Error saving to {}", output_name))?;
         }
-    });
+    }
 
     Ok(siglist)
 }

@@ -5,8 +5,7 @@ use std::path::Path;
 use std::rc::Rc;
 
 use clap::{load_yaml, App};
-use exitfailure::ExitFailure;
-use failure::Error;
+use eyre::{eyre, Error, Result};
 use log::{error, info, warn, LevelFilter};
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
@@ -52,11 +51,7 @@ use crate::cmd::{compare, compute, CompareParameters};
 #[global_allocator]
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
-pub fn index(
-    sig_files: Vec<&str>,
-    storage: Rc<dyn Storage>,
-    outfile: &str,
-) -> Result<Indices, Error> {
+pub fn index(sig_files: Vec<&str>, storage: Rc<dyn Storage>, outfile: &str) -> Result<Indices> {
     let mut index = MHBT::builder().storage(Rc::clone(&storage)).build();
 
     for filename in sig_files {
@@ -151,7 +146,7 @@ fn load_query_signature(
     ksize: Option<usize>,
     moltype: Option<&str>,
     scaled: Option<u64>,
-) -> Result<Query<Signature>, Error> {
+) -> Result<Query<Signature>> {
     let moltype: Option<HashFunctions> = if let Some(mol) = moltype {
         Some(mol.try_into()?)
     } else {
@@ -186,7 +181,7 @@ impl Index<'_> for Database {
         search_fn: F,
         sig: &Self::Item,
         threshold: f64,
-    ) -> Result<Vec<&Self::Item>, Error>
+    ) -> std::result::Result<Vec<&Self::Item>, sourmash::Error>
     where
         F: Fn(&dyn Comparable<Self::Item>, &Self::Item, f64) -> bool,
     {
@@ -196,21 +191,21 @@ impl Index<'_> for Database {
         }
     }
 
-    fn insert(&mut self, node: Self::Item) -> Result<(), Error> {
+    fn insert(&mut self, node: Self::Item) -> std::result::Result<(), sourmash::Error> {
         match &mut self.data {
             Indices::MHBT(data) => data.insert(node),
             Indices::LinearIndex(data) => data.insert(node),
         }
     }
 
-    fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
+    fn save<P: AsRef<Path>>(&self, path: P) -> std::result::Result<(), sourmash::Error> {
         match &self.data {
             Indices::MHBT(data) => data.save(path),
             Indices::LinearIndex(data) => data.save(path),
         }
     }
 
-    fn load<P: AsRef<Path>>(_path: P) -> Result<(), Error> {
+    fn load<P: AsRef<Path>>(_path: P) -> std::result::Result<(), sourmash::Error> {
         unimplemented!();
     }
 
@@ -234,7 +229,7 @@ fn load_sbts_and_sigs(
     query: &Query<Signature>,
     _containment: bool,
     traverse: bool,
-) -> Result<Vec<Database>, Error> {
+) -> Result<Vec<Database>> {
     let mut dbs = Vec::default();
 
     let _ksize = query.ksize();
@@ -282,7 +277,7 @@ fn load_sbts_and_sigs(
     } else if n_databases > 0 {
         info!("loaded {} databases.", n_databases);
     } else {
-        return Err(failure::err_msg("Couldn't load any databases"));
+        return Err(eyre!("Couldn't load any databases from {:#?}", filenames));
     }
 
     Ok(dbs)
@@ -295,7 +290,7 @@ struct Results {
 }
 
 impl Serialize for Results {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -315,7 +310,7 @@ fn search_databases(
     containment: bool,
     best_only: bool,
     _ignore_abundance: bool,
-) -> Result<Vec<Results>, Error> {
+) -> Result<Vec<Results>> {
     let mut results = Vec::default();
 
     let search_fn = if best_only {
@@ -349,7 +344,7 @@ fn search_databases(
     Ok(results)
 }
 
-fn main() -> Result<(), ExitFailure> {
+fn main() -> Result<()> {
     //better_panic::install();
 
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
@@ -462,9 +457,16 @@ fn main() -> Result<(), ExitFailure> {
                 error!("must specify -o with --name");
                 std::process::exit(-1);
             }
+            if args.is_present("merge") && !args.is_present("output") {
+                error!("must specify -o with --merge");
+                std::process::exit(-1);
+            }
             params.merge = match args.value_of("name") {
                 Some(v) => Some(v.into()),
-                None => None,
+                None => match args.value_of("merge") {
+                    Some(v) => Some(v.into()),
+                    None => None,
+                },
             };
             params.output = match args.value_of("output") {
                 Some(v) => Some(v.into()),
@@ -577,7 +579,7 @@ fn main() -> Result<(), ExitFailure> {
             )?;
 
             if databases.is_empty() {
-                return Err(failure::err_msg("Nothing found to search!").into());
+                return Err(eyre!("Nothing found to search!"));
             }
 
             let best_only = cmd.is_present("best-only");
