@@ -1,12 +1,38 @@
+use std::fs::File;
+use std::io;
 use std::path::Path;
 
 use eyre::{Error, WrapErr};
 use log::info;
-use needletail::parse_sequence_path;
+use needletail::{parse_sequence_path, parse_sequence_reader, SequenceRecord};
 use sourmash::cmd::ComputeParameters;
 use sourmash::index::storage::ToWriter;
 use sourmash::signature::Signature;
 
+fn parse_seqs<P: AsRef<Path>, F>(filename: &P, parse_fn: F) -> Result<(), Error>
+where
+    F: for<'a> FnMut(SequenceRecord<'a>) -> (),
+{
+    if filename.as_ref() == Path::new("-") {
+        parse_sequence_path(filename, |_| {}, parse_fn).wrap_err_with(|| {
+            format!(
+                "Failed to read sequences from {}",
+                filename.as_ref().to_str().unwrap()
+            )
+        })?;
+    } else {
+        let mut reader = io::BufReader::new(File::open(filename)?);
+        let (rdr, _) = niffler::get_reader(Box::new(reader))?;
+
+        parse_sequence_reader(rdr, |_| {}, parse_fn).wrap_err_with(|| {
+            format!(
+                "Failed to read sequences from {}",
+                filename.as_ref().to_str().unwrap()
+            )
+        })?;
+    }
+    Ok(())
+}
 pub fn compute<P: AsRef<Path>>(
     filenames: Vec<P>,
     params: &ComputeParameters,
@@ -27,26 +53,17 @@ pub fn compute<P: AsRef<Path>>(
                 filename.as_ref().to_str().unwrap()
             );
 
-            parse_sequence_path(
-                filename,
-                |_| {},
-                |record| {
-                    if params.input_is_protein {
-                        sig.add_protein(&record.seq).expect("Error adding sequence");
-                    } else {
-                        sig.add_sequence(&record.seq, !params.check_sequence)
-                            .expect("Error adding sequence");
-                    }
-                    n += 1;
-                },
-            )
-            .wrap_err_with(|| {
-                format!(
-                    "Failed to read sequences from {}",
-                    filename.as_ref().to_str().unwrap()
-                )
-            })?;
+            let parse_fn = |record: SequenceRecord| {
+                if params.input_is_protein {
+                    sig.add_protein(&record.seq).expect("Error adding sequence");
+                } else {
+                    sig.add_sequence(&record.seq, !params.check_sequence)
+                        .expect("Error adding sequence");
+                }
+                n += 1;
+            };
 
+            parse_seqs(filename, parse_fn)?;
             total_seq += n + 1;
         }
 
@@ -80,29 +97,21 @@ pub fn compute<P: AsRef<Path>>(
             .unwrap_or(format!("{}.sig", filename.as_ref().to_str().unwrap()));
 
         if params.singleton {
-            parse_sequence_path(
-                filename,
-                |_| {},
-                |record| {
-                    let mut sig = Signature::from_params(&params);
-                    sig.set_name(&String::from_utf8(record.id.into_owned()).unwrap());
-                    sig.set_filename(&filename.as_ref().to_str().unwrap());
+            let parse_fn = |record: SequenceRecord| {
+                let mut sig = Signature::from_params(&params);
+                sig.set_name(&String::from_utf8(record.id.into_owned()).unwrap());
+                sig.set_filename(&filename.as_ref().to_str().unwrap());
 
-                    if params.input_is_protein {
-                        sig.add_protein(&record.seq).expect("Error adding sequence");
-                    } else {
-                        sig.add_sequence(&record.seq, !params.check_sequence)
-                            .expect("Error adding sequence");
-                    }
-                    siglist.push(sig);
-                },
-            )
-            .wrap_err_with(|| {
-                format!(
-                    "Failed to read sequences from {}",
-                    filename.as_ref().to_str().unwrap()
-                )
-            })?;
+                if params.input_is_protein {
+                    sig.add_protein(&record.seq).expect("Error adding sequence");
+                } else {
+                    sig.add_sequence(&record.seq, !params.check_sequence)
+                        .expect("Error adding sequence");
+                }
+                siglist.push(sig);
+            };
+
+            parse_seqs(filename, parse_fn)?;
         } else if params.input_is_10x {
             // TODO: implement 10x parsing
             unimplemented!()
@@ -118,28 +127,20 @@ pub fn compute<P: AsRef<Path>>(
 
             let mut name = None;
 
-            parse_sequence_path(
-                filename,
-                |_| {},
-                |record| {
-                    if params.input_is_protein {
-                        sig.add_protein(&record.seq).expect("Error adding sequence");
-                    } else {
-                        sig.add_sequence(&record.seq, !params.check_sequence)
-                            .expect("Error adding sequence");
-                    }
+            let parse_fn = |record: SequenceRecord| {
+                if params.input_is_protein {
+                    sig.add_protein(&record.seq).expect("Error adding sequence");
+                } else {
+                    sig.add_sequence(&record.seq, !params.check_sequence)
+                        .expect("Error adding sequence");
+                }
 
-                    if params.name_from_first && name.is_none() {
-                        name = Some(String::from_utf8(record.id.into_owned()).unwrap())
-                    };
-                },
-            )
-            .wrap_err_with(|| {
-                format!(
-                    "Failed to read sequences from {}",
-                    filename.as_ref().to_str().unwrap()
-                )
-            })?;
+                if params.name_from_first && name.is_none() {
+                    name = Some(String::from_utf8(record.id.into_owned()).unwrap())
+                };
+            };
+
+            parse_seqs(filename, parse_fn)?;
 
             if let Some(n) = name {
                 sig.set_name(&n)

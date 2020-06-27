@@ -123,6 +123,13 @@ impl Query<Signature> {
                     "DNA".into()
                 }
             }
+            Sketch::LargeMinHash(mh) => {
+                if mh.is_protein() {
+                    "protein".into()
+                } else {
+                    "DNA".into()
+                }
+            }
             Sketch::UKHS(_) => {
                 // TODO: draff only supports dna for now
                 "DNA".into()
