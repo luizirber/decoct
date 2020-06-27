@@ -5,7 +5,7 @@ use std::path::Path;
 use std::rc::Rc;
 
 use clap::{load_yaml, App};
-use eyre::{eyre, Error, Result};
+use eyre::{eyre, Result};
 use log::{error, info, warn, LevelFilter};
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};

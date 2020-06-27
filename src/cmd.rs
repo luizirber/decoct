@@ -1,38 +1,37 @@
 use std::fs::File;
 use std::io;
+use std::io::Read;
 use std::path::Path;
 
-use eyre::{Error, WrapErr};
+use eyre::{eyre, Error, WrapErr};
 use log::info;
-use needletail::{parse_sequence_path, parse_sequence_reader, SequenceRecord};
+use needletail::parser::{FastaReader, FastqReader};
+use needletail::{parse_fastx_file, FastxReader, Sequence};
 use sourmash::cmd::ComputeParameters;
 use sourmash::index::storage::ToWriter;
 use sourmash::signature::Signature;
 
-fn parse_seqs<P: AsRef<Path>, F>(filename: &P, parse_fn: F) -> Result<(), Error>
-where
-    F: for<'a> FnMut(SequenceRecord<'a>) -> (),
-{
-    if filename.as_ref() == Path::new("-") {
-        parse_sequence_path(filename, |_| {}, parse_fn).wrap_err_with(|| {
-            format!(
-                "Failed to read sequences from {}",
-                filename.as_ref().to_str().unwrap()
-            )
-        })?;
+fn get_parser<P: AsRef<Path>>(filename: &P) -> Result<Box<dyn FastxReader>, Error> {
+    let f: Box<dyn Read> = if filename.as_ref() == Path::new("-") {
+        Box::new(io::stdin())
     } else {
-        let mut reader = io::BufReader::new(File::open(filename)?);
-        let (rdr, _) = niffler::get_reader(Box::new(reader))?;
+        Box::new(File::open(filename)?)
+    };
 
-        parse_sequence_reader(rdr, |_| {}, parse_fn).wrap_err_with(|| {
-            format!(
-                "Failed to read sequences from {}",
-                filename.as_ref().to_str().unwrap()
-            )
-        })?;
+    let (reader, _) = niffler::get_reader(f)?;
+
+    let mut rdr = io::BufReader::new(reader);
+    let mut first = [0; 1];
+    rdr.read_exact(&mut first)?;
+    let cursor = io::Cursor::new(first);
+
+    match first[0] {
+        b'>' => Ok(Box::new(FastaReader::new(cursor.chain(rdr)))),
+        b'@' => Ok(Box::new(FastqReader::new(cursor.chain(rdr)))),
+        _ => Err(eyre!("Unknown format, first byte: {}", first[0])),
     }
-    Ok(())
 }
+
 pub fn compute<P: AsRef<Path>>(
     filenames: Vec<P>,
     params: &ComputeParameters,
@@ -53,17 +52,20 @@ pub fn compute<P: AsRef<Path>>(
                 filename.as_ref().to_str().unwrap()
             );
 
-            let parse_fn = |record: SequenceRecord| {
+            let mut parser = get_parser(&filename)?;
+
+            while let Some(record) = parser.next() {
+                let record = record?;
+                let seq = record.normalize(false);
                 if params.input_is_protein {
-                    sig.add_protein(&record.seq).expect("Error adding sequence");
+                    sig.add_protein(&seq).expect("Error adding sequence");
                 } else {
-                    sig.add_sequence(&record.seq, !params.check_sequence)
+                    sig.add_sequence(&seq, !params.check_sequence)
                         .expect("Error adding sequence");
                 }
                 n += 1;
-            };
+            }
 
-            parse_seqs(filename, parse_fn)?;
             total_seq += n + 1;
         }
 
@@ -97,21 +99,22 @@ pub fn compute<P: AsRef<Path>>(
             .unwrap_or(format!("{}.sig", filename.as_ref().to_str().unwrap()));
 
         if params.singleton {
-            let parse_fn = |record: SequenceRecord| {
+            let mut parser = get_parser(&filename)?;
+
+            while let Some(record) = parser.next() {
+                let record = record?;
                 let mut sig = Signature::from_params(&params);
-                sig.set_name(&String::from_utf8(record.id.into_owned()).unwrap());
+                sig.set_name(&String::from_utf8(record.id().to_vec())?);
                 sig.set_filename(&filename.as_ref().to_str().unwrap());
 
+                let seq = record.normalize(false);
                 if params.input_is_protein {
-                    sig.add_protein(&record.seq).expect("Error adding sequence");
+                    sig.add_protein(&seq)?;
                 } else {
-                    sig.add_sequence(&record.seq, !params.check_sequence)
-                        .expect("Error adding sequence");
+                    sig.add_sequence(&seq, !params.check_sequence)?;
                 }
                 siglist.push(sig);
-            };
-
-            parse_seqs(filename, parse_fn)?;
+            }
         } else if params.input_is_10x {
             // TODO: implement 10x parsing
             unimplemented!()
@@ -122,28 +125,29 @@ pub fn compute<P: AsRef<Path>>(
             info!("... reading sequences from {}", &fname);
 
             let mut sig = Signature::from_params(&params);
-            sig.set_name(&fname);
             sig.set_filename(&fname);
 
             let mut name = None;
 
-            let parse_fn = |record: SequenceRecord| {
+            let mut parser = get_parser(&filename)?;
+            while let Some(record) = parser.next() {
+                let record = record?;
+                let seq = record.normalize(false);
                 if params.input_is_protein {
-                    sig.add_protein(&record.seq).expect("Error adding sequence");
+                    sig.add_protein(&seq)?;
                 } else {
-                    sig.add_sequence(&record.seq, !params.check_sequence)
-                        .expect("Error adding sequence");
+                    sig.add_sequence(&seq, !params.check_sequence)?;
                 }
 
                 if params.name_from_first && name.is_none() {
-                    name = Some(String::from_utf8(record.id.into_owned()).unwrap())
+                    name = Some(String::from_utf8(record.id().to_vec())?);
                 };
-            };
-
-            parse_seqs(filename, parse_fn)?;
+            }
 
             if let Some(n) = name {
                 sig.set_name(&n)
+            } else {
+                sig.set_name(&fname);
             };
 
             if params.output.is_none() {

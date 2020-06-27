@@ -29,7 +29,8 @@ csv = "1.1.1"
 env_logger = "0.7.1"
 log = "0.4.8"
 niffler = { version = "2.0.0", default-features = false }
-needletail = { version = "0.3.2", default-features = false }
+#needletail = { version = "0.3.2", default-features = false }
+needletail = { git = "https://github.com/onecodex/needletail.git", branch = "vp_py3", default-features = false }
 rayon = "1.0"
 serde = "1.0.103"
 serde_json = "1.0.44"
