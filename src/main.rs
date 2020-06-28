@@ -402,11 +402,11 @@ fn main() -> Result<()> {
 
             if args.is_present("input-is-protein") && args.is_present("dna") {
                 warn!("input is protein, turning off nucleotide hashing");
-                params.dna = false;
-                params.input_is_protein = true;
+                params.set_dna(false);
+                params.set_input_is_protein(true);
             } else {
-                params.dna = true;
-                params.input_is_protein = false;
+                params.set_dna(true);
+                params.set_input_is_protein(false);
             };
 
             let scaled: u64 = args
@@ -421,11 +421,11 @@ fn main() -> Result<()> {
                 if scaled >= 1_000_000_000 {
                     warn!("scaled value is nonsensical!? Continuing anyway.")
                 }
-                params.num_hashes = 0;
+                params.set_num_hashes(0);
             } else {
-                params.num_hashes = num_hashes;
+                params.set_num_hashes(num_hashes);
             };
-            params.scaled = scaled;
+            params.set_scaled(scaled);
 
             let filenames = args
                 .values_of("filenames")
@@ -433,26 +433,27 @@ fn main() -> Result<()> {
                 .unwrap();
             info!("computing signatures for files: {:?}", filenames);
 
-            params.ksizes = args
-                .value_of("ksize")
-                .unwrap()
-                .split(',')
-                .map(|x| x.parse().expect("Must be an integer"))
-                .collect();
-            info!("computing signatures for ksizes: {:?}", params.ksizes);
+            params.set_ksizes(
+                args.value_of("ksize")
+                    .unwrap()
+                    .split(',')
+                    .map(|x| x.parse().expect("Must be an integer"))
+                    .collect(),
+            );
+            info!("computing signatures for ksizes: {:?}", params.ksizes());
 
             // TODO: num_sigs
-            let num_sigs = params.ksizes.len();
+            let num_sigs = params.ksizes().len();
 
-            params.processes = match args.value_of("processes") {
+            params.set_processes(match args.value_of("processes") {
                 Some(v) => v.parse()?,
                 None => 1,
-            };
+            });
 
             // TODO: check how many sketches are created, and limit rayon threads.
             // If rayon tries to use all available threads there is contention
             rayon::ThreadPoolBuilder::new()
-                .num_threads(params.processes)
+                .num_threads(params.processes())
                 .build_global()
                 .unwrap();
 
@@ -468,28 +469,28 @@ fn main() -> Result<()> {
                 error!("must specify -o with --merge");
                 std::process::exit(-1);
             }
-            params.merge = match args.value_of("name") {
+            params.set_merge(match args.value_of("name") {
                 Some(v) => Some(v.into()),
                 None => match args.value_of("merge") {
                     Some(v) => Some(v.into()),
                     None => None,
                 },
-            };
-            params.output = match args.value_of("output") {
+            });
+            params.set_output(match args.value_of("output") {
                 Some(v) => Some(v.into()),
                 None => None,
-            };
+            });
 
-            params.track_abundance = args.is_present("track-abundance");
-            if params.track_abundance {
+            params.set_track_abundance(args.is_present("track-abundance"));
+            if params.track_abundance() {
                 info!("Tracking abundance of input-kmers.");
             }
 
-            params.force = args.is_present("force");
-            params.randomize = args.is_present("randomize");
-            params.singleton = args.is_present("singleton");
-            params.check_sequence = args.is_present("check-sequence");
-            params.name_from_first = args.is_present("name-from-first");
+            params.set_force(args.is_present("force"));
+            params.set_randomize(args.is_present("randomize"));
+            params.set_singleton(args.is_present("singleton"));
+            params.set_check_sequence(args.is_present("check-sequence"));
+            params.set_name_from_first(args.is_present("name-from-first"));
 
             compute(filenames, &params)?;
         }

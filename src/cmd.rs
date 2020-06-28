@@ -36,14 +36,14 @@ pub fn compute<P: AsRef<Path>>(
     filenames: Vec<P>,
     params: &ComputeParameters,
 ) -> Result<Vec<Signature>, Error> {
-    if params.merge.is_some() {
+    if params.merge().is_some() {
         // make one signature for all files
         let mut n = 0;
         let mut total_seq = 0;
 
         let mut sig = Signature::from_params(&params);
         sig.set_filename(filenames.iter().last().unwrap().as_ref().to_str().unwrap());
-        sig.set_name(&params.merge.clone().unwrap());
+        sig.set_name(&params.merge().clone().unwrap());
 
         for filename in &filenames {
             // consume & calculate signatures
@@ -57,10 +57,10 @@ pub fn compute<P: AsRef<Path>>(
             while let Some(record) = parser.next() {
                 let record = record?;
                 let seq = record.normalize(false);
-                if params.input_is_protein {
+                if params.input_is_protein() {
                     sig.add_protein(&seq).expect("Error adding sequence");
                 } else {
-                    sig.add_sequence(&seq, !params.check_sequence)
+                    sig.add_sequence(&seq, !params.check_sequence())
                         .expect("Error adding sequence");
                 }
                 n += 1;
@@ -76,7 +76,7 @@ pub fn compute<P: AsRef<Path>>(
             filenames.len()
         );
 
-        let output_name = params.output.as_ref().unwrap();
+        let output_name = params.output().as_ref().unwrap();
         let mut output = niffler::to_path(
             output_name,
             niffler::compression::Format::No,
@@ -94,11 +94,11 @@ pub fn compute<P: AsRef<Path>>(
 
     for filename in &filenames {
         let sigfile = params
-            .output
+            .output()
             .clone()
             .unwrap_or(format!("{}.sig", filename.as_ref().to_str().unwrap()));
 
-        if params.singleton {
+        if params.singleton() {
             let mut parser = get_parser(&filename)?;
 
             while let Some(record) = parser.next() {
@@ -108,14 +108,14 @@ pub fn compute<P: AsRef<Path>>(
                 sig.set_filename(&filename.as_ref().to_str().unwrap());
 
                 let seq = record.normalize(false);
-                if params.input_is_protein {
+                if params.input_is_protein() {
                     sig.add_protein(&seq)?;
                 } else {
-                    sig.add_sequence(&seq, !params.check_sequence)?;
+                    sig.add_sequence(&seq, !params.check_sequence())?;
                 }
                 siglist.push(sig);
             }
-        } else if params.input_is_10x {
+        } else if params.input_is_10x() {
             // TODO: implement 10x parsing
             unimplemented!()
         } else {
@@ -133,13 +133,13 @@ pub fn compute<P: AsRef<Path>>(
             while let Some(record) = parser.next() {
                 let record = record?;
                 let seq = record.normalize(false);
-                if params.input_is_protein {
+                if params.input_is_protein() {
                     sig.add_protein(&seq)?;
                 } else {
-                    sig.add_sequence(&seq, !params.check_sequence)?;
+                    sig.add_sequence(&seq, !params.check_sequence())?;
                 }
 
-                if params.name_from_first && name.is_none() {
+                if params.name_from_first() && name.is_none() {
                     name = Some(String::from_utf8(record.id().to_vec())?);
                 };
             }
@@ -150,7 +150,7 @@ pub fn compute<P: AsRef<Path>>(
                 sig.set_name(&fname);
             };
 
-            if params.output.is_none() {
+            if params.output().is_none() {
                 let mut output = niffler::to_path(
                     &sigfile,
                     niffler::compression::Format::No,
@@ -165,7 +165,7 @@ pub fn compute<P: AsRef<Path>>(
             }
         }
 
-        if let Some(ref output_name) = params.output {
+        if let Some(ref output_name) = params.output() {
             let mut output = niffler::to_path(
                 &output_name,
                 niffler::compression::Format::No,
