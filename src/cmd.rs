@@ -1,36 +1,11 @@
-use std::fs::File;
-use std::io;
-use std::io::Read;
 use std::path::Path;
 
-use eyre::{eyre, Error, WrapErr};
+use eyre::{Error, WrapErr};
 use log::info;
-use needletail::parser::{FastaReader, FastqReader};
-use needletail::{parse_fastx_file, FastxReader, Sequence};
+use needletail::{parse_fastx_file, Sequence};
 use sourmash::cmd::ComputeParameters;
 use sourmash::index::storage::ToWriter;
 use sourmash::signature::Signature;
-
-fn get_parser<P: AsRef<Path>>(filename: &P) -> Result<Box<dyn FastxReader>, Error> {
-    let f: Box<dyn Read> = if filename.as_ref() == Path::new("-") {
-        Box::new(io::stdin())
-    } else {
-        Box::new(File::open(filename)?)
-    };
-
-    let (reader, _) = niffler::get_reader(f)?;
-
-    let mut rdr = io::BufReader::new(reader);
-    let mut first = [0; 1];
-    rdr.read_exact(&mut first)?;
-    let cursor = io::Cursor::new(first);
-
-    match first[0] {
-        b'>' => Ok(Box::new(FastaReader::new(cursor.chain(rdr)))),
-        b'@' => Ok(Box::new(FastqReader::new(cursor.chain(rdr)))),
-        _ => Err(eyre!("Unknown format, first byte: {}", first[0])),
-    }
-}
 
 pub fn compute<P: AsRef<Path>>(
     filenames: Vec<P>,
@@ -52,7 +27,7 @@ pub fn compute<P: AsRef<Path>>(
                 filename.as_ref().to_str().unwrap()
             );
 
-            let mut parser = get_parser(&filename)?;
+            let mut parser = parse_fastx_file(&filename)?;
 
             while let Some(record) = parser.next() {
                 let record = record?;
@@ -99,7 +74,7 @@ pub fn compute<P: AsRef<Path>>(
             .unwrap_or(format!("{}.sig", filename.as_ref().to_str().unwrap()));
 
         if params.singleton() {
-            let mut parser = get_parser(&filename)?;
+            let mut parser = parse_fastx_file(&filename)?;
 
             while let Some(record) = parser.next() {
                 let record = record?;
@@ -129,7 +104,7 @@ pub fn compute<P: AsRef<Path>>(
 
             let mut name = None;
 
-            let mut parser = get_parser(&filename)?;
+            let mut parser = parse_fastx_file(&filename)?;
             while let Some(record) = parser.next() {
                 let record = record?;
                 let seq = record.normalize(false);

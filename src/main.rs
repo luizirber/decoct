@@ -52,7 +52,7 @@ use crate::cmd::{compare, compute, CompareParameters};
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 pub fn index(sig_files: Vec<&str>, storage: Rc<dyn Storage>, outfile: &str) -> Result<Indices> {
-    let mut index = MHBT::builder().storage(Rc::clone(&storage)).build();
+    let mut index = MHBT::builder().storage(Some(Rc::clone(&storage))).build();
 
     for filename in sig_files {
         // TODO: check for stdin? can also use get_input()?
