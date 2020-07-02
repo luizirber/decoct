@@ -33,10 +33,9 @@ pub fn compute<P: AsRef<Path>>(
                 let record = record?;
                 let seq = record.normalize(false);
                 if params.input_is_protein() {
-                    sig.add_protein(&seq).expect("Error adding sequence");
+                    sig.add_protein(&seq)?;
                 } else {
-                    sig.add_sequence(&seq, !params.check_sequence())
-                        .expect("Error adding sequence");
+                    sig.add_sequence(&seq, !params.check_sequence())?;
                 }
                 n += 1;
             }
