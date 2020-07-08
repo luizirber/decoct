@@ -1,4 +1,5 @@
 use std::fs;
+use std::io::{Read, Write};
 use std::process::Command;
 
 use assert_cmd::prelude::*;
@@ -163,6 +164,58 @@ fn compute() -> Result<(), Box<dyn std::error::Error>> {
             .args(&["-k", k])
             .arg("ecoli.fna.sig")
             .arg("ecoli_sourmash.fna.sig")
+            .current_dir(&tmp_dir)
+            .assert()
+            .success()
+            .stdout(contains("min similarity in matrix: 1.000"));
+    }
+
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn compute_compressed_input() -> Result<(), Box<dyn std::error::Error>> {
+    let tmp_dir = TempDir::new()?;
+    let file = tmp_dir.path().join("ecoli.fna.gz");
+    {
+        let mut writer = niffler::get_writer(
+            Box::new(std::fs::File::create(file)?),
+            niffler::compression::Format::Gzip,
+            niffler::compression::Level::Nine,
+        )?;
+        let mut input = std::fs::File::open("tests/data/ecoli.genes.fna")?;
+        let mut buffer = Vec::new();
+        input.read_to_end(&mut buffer)?;
+
+        writer.write_all(&buffer)?;
+    }
+
+    let mut cmd = Command::cargo_bin("decoct")?;
+    cmd.arg("compute")
+        .arg("ecoli.fna.gz")
+        .current_dir(&tmp_dir)
+        .assert()
+        .success();
+
+    assert!(tmp_dir.path().join("ecoli.fna.gz.sig").exists());
+
+    let mut cmd = Command::new("sourmash");
+    cmd.arg("compute")
+        .arg("ecoli.fna.gz")
+        .args(&["-o", "ecoli_sourmash.fna.gz.sig"])
+        .current_dir(&tmp_dir)
+        .assert()
+        .success();
+
+    assert!(tmp_dir.path().join("ecoli_sourmash.fna.gz.sig").exists());
+
+    for k in &["21", "31", "51"] {
+        let mut cmd = Command::new("sourmash");
+        cmd.arg("compare")
+            .args(&["-k", k])
+            .arg("ecoli.fna.gz.sig")
+            .arg("ecoli_sourmash.fna.gz.sig")
             .current_dir(&tmp_dir)
             .assert()
             .success()
