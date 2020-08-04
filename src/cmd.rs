@@ -2,10 +2,20 @@ use std::path::Path;
 
 use eyre::{Error, WrapErr};
 use log::info;
-use needletail::{parse_fastx_file, Sequence};
+use needletail::{parse_fastx_file, parse_fastx_stdin, Sequence};
 use sourmash::cmd::ComputeParameters;
 use sourmash::index::storage::ToWriter;
 use sourmash::signature::Signature;
+
+fn open_parser<P: AsRef<Path>>(
+    filename: P,
+) -> Result<Box<dyn needletail::parser::FastxReader>, needletail::errors::ParseError> {
+    if filename.as_ref() == Path::new("-") {
+        parse_fastx_stdin()
+    } else {
+        parse_fastx_file(&filename)
+    }
+}
 
 pub fn compute<P: AsRef<Path>>(
     filenames: Vec<P>,
@@ -27,7 +37,7 @@ pub fn compute<P: AsRef<Path>>(
                 filename.as_ref().to_str().unwrap()
             );
 
-            let mut parser = parse_fastx_file(&filename)?;
+            let mut parser = open_parser(&filename)?;
 
             while let Some(record) = parser.next() {
                 let record = record?;
@@ -73,7 +83,7 @@ pub fn compute<P: AsRef<Path>>(
             .unwrap_or(format!("{}.sig", filename.as_ref().to_str().unwrap()));
 
         if params.singleton() {
-            let mut parser = parse_fastx_file(&filename)?;
+            let mut parser = open_parser(&filename)?;
 
             while let Some(record) = parser.next() {
                 let record = record?;
