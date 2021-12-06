@@ -12,6 +12,7 @@ use serde::{Serialize, Serializer};
 
 use sourmash::cmd::{prepare, ComputeParameters};
 
+use sourmash::encodings::HashFunctions;
 use sourmash::index::linear::LinearIndex;
 use sourmash::index::sbt::scaffold;
 use sourmash::index::search::{
@@ -20,12 +21,11 @@ use sourmash::index::search::{
 use sourmash::index::storage::{FSStorage, Storage};
 use sourmash::index::{Comparable, Index, MHBT};
 use sourmash::signature::{Signature, SigsTrait};
-use sourmash::sketch::minhash::HashFunctions;
 use sourmash::sketch::Sketch;
 
 mod cmd;
 
-use crate::cmd::{compare, compute, CompareParameters};
+use crate::cmd::{compute, CompareParameters};
 
 // Original comment from ripgrep and why using jemalloc with musl is recommended:
 // https://github.com/BurntSushi/ripgrep/commit/03bf37ff4a29361c47843369f7d3dc5689b8fdac
@@ -130,9 +130,8 @@ impl Query<Signature> {
                     "DNA".into()
                 }
             }
-            Sketch::UKHS(_) => {
-                // TODO: draff only supports dna for now
-                "DNA".into()
+            Sketch::HyperLogLog(_) => {
+                unimplemented!()
             }
         }
     }

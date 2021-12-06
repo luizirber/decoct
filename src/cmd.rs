@@ -99,9 +99,6 @@ pub fn compute<P: AsRef<Path>>(
                 }
                 siglist.push(sig);
             }
-        } else if params.input_is_10x() {
-            // TODO: implement 10x parsing
-            unimplemented!()
         } else {
             // make minhashes for the whole file
 
