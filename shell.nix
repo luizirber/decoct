@@ -2,13 +2,24 @@ let
   sources = import ./nix/sources.nix;
   rustPlatform = import ./nix/rust.nix { inherit sources; };
   pkgs = import sources.nixpkgs { overlays = [ (import sources.rust-overlay) ]; };
+  mach-nix = import sources.mach-nix {
+    pkgs = pkgs;
+    python = "python39";
+  };
+
+  customPython = mach-nix.mkPython {
+    requirements = ''
+      sourmash>=4
+      setuptools
+    '';
+  };
 in
   with pkgs;
 
   pkgs.mkShell {
     buildInputs = [
       rustPlatform.rust.cargo
-      (python39.withPackages(ps: with ps; [ virtualenv setuptools ]))
+      customPython
     ];
 
     shellHook = ''

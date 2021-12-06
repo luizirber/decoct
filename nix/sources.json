@@ -1,4 +1,16 @@
 {
+    "mach-nix": {
+        "branch": "master",
+        "description": "Create highly reproducible python environments",
+        "homepage": "",
+        "owner": "davhau",
+        "repo": "mach-nix",
+        "rev": "31b21203a1350bff7c541e9dfdd4e07f76d874be",
+        "sha256": "0przsgmbbcnnqdff7n43zv5girix83ky4mjlxq7m2ksr3wyj2va2",
+        "type": "tarball",
+        "url": "https://github.com/davhau/mach-nix/archive/31b21203a1350bff7c541e9dfdd4e07f76d874be.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
     "niv": {
         "branch": "master",
         "description": "Easy dependency management for Nix projects",
@@ -29,10 +41,10 @@
         "homepage": null,
         "owner": "oxalica",
         "repo": "rust-overlay",
-        "rev": "f5a5eddda1a64dca6830124aff5e09674e585477",
-        "sha256": "0pvwdgifqjciqx8xj7s25dxabbdxhbk2vfslqspv0nx4qk8xm2ky",
+        "rev": "95c9abf47228cc3ea6ffc069121f3c87709b22dc",
+        "sha256": "1rcv0l7hyx1d309iiw5bajja28dbp15mlwh3acraqkrp0l8r910p",
         "type": "tarball",
-        "url": "https://github.com/oxalica/rust-overlay/archive/f5a5eddda1a64dca6830124aff5e09674e585477.tar.gz",
+        "url": "https://github.com/oxalica/rust-overlay/archive/95c9abf47228cc3ea6ffc069121f3c87709b22dc.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }
